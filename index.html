@@ -127,6 +127,53 @@ body {
   });
 })();
 </script>
+<script>
+// The Last Attendance - native name field for phones. iPhone Safari opens its keyboard only when the user taps a real
+// text box (a keyboard requested a frame later, from inside the game canvas, is silently refused). So while the
+// late-entry register is open on a touch device, the game asks for a real <input> placed exactly over its name line.
+(function () {
+  var el = null;
+  var st = { value: '', submitted: false, focused: false };
+  window.__tlaField = st;
+  function make() {
+    el = document.createElement('input');
+    el.type = 'text';
+    el.autocomplete = 'off';
+    el.spellcheck = false;
+    el.setAttribute('autocapitalize', 'characters');
+    el.setAttribute('autocorrect', 'off');
+    el.setAttribute('enterkeyhint', 'done');
+    el.style.cssText = 'position:fixed;z-index:10;display:none;box-sizing:border-box;margin:0;border:0;' +
+      'border-bottom:3px solid #807359;border-radius:0;background:#f7f2db;color:#050508;padding:0 8px;outline:none;' +
+      '-webkit-appearance:none;appearance:none;font-family:"Bradley Hand","Segoe Print","Comic Sans MS",cursive;';
+    el.addEventListener('input', function () { st.value = el.value; });
+    el.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { st.value = el.value; st.submitted = true; el.blur(); e.preventDefault(); }
+    });
+    el.addEventListener('focus', function () { st.focused = true; });
+    el.addEventListener('blur', function () { st.focused = false; setTimeout(function () { window.scrollTo(0, 0); }, 50); });
+    document.body.appendChild(el);
+  }
+  // x, y, w, h in game-window (device) pixels
+  st.show = function (x, y, w, h, max, placeholder) {
+    if (!el) make();
+    var c = document.querySelector('canvas');
+    var r = c.getBoundingClientRect();
+    var k = r.width / (c.width || r.width);
+    el.maxLength = max;
+    el.placeholder = placeholder;
+    el.style.left = (r.left + x * k) + 'px';
+    el.style.top = (r.top + y * k) + 'px';
+    el.style.width = (w * k) + 'px';
+    el.style.height = (h * k) + 'px';
+    el.style.fontSize = Math.max(16, Math.round(h * k * 0.5)) + 'px';   // >= 16 px: Safari does not zoom the page
+    el.style.display = 'block';
+  };
+  st.set = function (v) { st.value = v; if (el && el.value !== v) el.value = v; };
+  st.hide = function () { if (el) { el.blur(); el.style.display = 'none'; el.value = ''; } st.value = ''; st.submitted = false; };
+  st.take = function () { var s = st.submitted; st.submitted = false; return s; };
+})();
+</script>
 
 	</head>
 	<body>
@@ -146,7 +193,7 @@ body {
 
 		<script src="index.js"></script>
 		<script>
-const GODOT_CONFIG = {"args":[],"canvasResizePolicy":2,"emscriptenPoolSize":8,"ensureCrossOriginIsolationHeaders":false,"executable":"index","experimentalVK":true,"fileSizes":{"index.pck":6268804,"index.wasm":39514754},"focusCanvas":true,"gdextensionLibs":[],"godotPoolSize":4};
+const GODOT_CONFIG = {"args":[],"canvasResizePolicy":2,"emscriptenPoolSize":8,"ensureCrossOriginIsolationHeaders":false,"executable":"index","experimentalVK":true,"fileSizes":{"index.pck":6269892,"index.wasm":39514754},"focusCanvas":true,"gdextensionLibs":[],"godotPoolSize":4};
 const GODOT_THREADS_ENABLED = false;
 const engine = new Engine(GODOT_CONFIG);
 
