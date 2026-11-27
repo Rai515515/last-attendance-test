@@ -99,6 +99,9 @@ body {
 // 2) On every tap/click/key: switch iOS to the "playback" audio session (plays even with the Silent switch on,
 //    where supported), start a silent looping <audio> (older iOS trick for the same thing), resume Web Audio.
 // 3) When the page is hidden (app switch, phone call): suspend audio; the next tap resumes it.
+// 0) Before the engine starts: ask iOS for the "playback" audio session, so Web Audio is not muted by the Silent switch
+//    (Audio Session API, Safari 16.4+ / iOS 17; a harmless no-op elsewhere). Set again on every tap below.
+try { if (navigator.audioSession) navigator.audioSession.type = "playback"; } catch (e) {}
 (function () {
   var AC = window.AudioContext || window.webkitAudioContext;
   window.__tlaCtx = [];
@@ -174,6 +177,47 @@ body {
   st.take = function () { var s = st.submitted; st.submitted = false; return s; };
 })();
 </script>
+<script>
+// Test builds only (?debug=1): copy everything the game sends to the speakers into an analyser, so a browser test can
+// measure the real output level (window.__tlaOutputDb). On the web Godot plays sounds as Web Audio samples, so its own
+// bus meters do not see them.
+if (/[?&]debug=1/.test(location.search)) (function () {
+  var connect = AudioNode.prototype.connect;
+  window.__tlaAnalysers = [];
+  AudioNode.prototype.connect = function (dest) {
+    var r = connect.apply(this, arguments);
+    try {
+      if (dest instanceof AudioDestinationNode) {
+        var ctx = this.context;
+        if (!ctx.__tlaAn) {
+          var an = ctx.createAnalyser();
+          an.fftSize = 4096;
+          var silent = ctx.createGain();
+          silent.gain.value = 0;
+          connect.call(an, silent);
+          connect.call(silent, ctx.destination);
+          ctx.__tlaAn = an;
+          window.__tlaAnalysers.push(an);
+        }
+        connect.call(this, ctx.__tlaAn);
+      }
+    } catch (e) {}
+    return r;
+  };
+  window.__tlaOutputDb = function () {
+    var best = -200;
+    window.__tlaAnalysers.forEach(function (an) {
+      var b = new Float32Array(an.fftSize);
+      an.getFloatTimeDomainData(b);
+      var sum = 0;
+      for (var i = 0; i < b.length; i++) sum += b[i] * b[i];
+      var rms = Math.sqrt(sum / b.length);
+      if (rms > 0) best = Math.max(best, 20 * Math.log10(rms));
+    });
+    return best;
+  };
+})();
+</script>
 
 	</head>
 	<body>
@@ -193,7 +237,7 @@ body {
 
 		<script src="index.js"></script>
 		<script>
-const GODOT_CONFIG = {"args":[],"canvasResizePolicy":2,"emscriptenPoolSize":8,"ensureCrossOriginIsolationHeaders":false,"executable":"index","experimentalVK":true,"fileSizes":{"index.pck":6269892,"index.wasm":39514754},"focusCanvas":true,"gdextensionLibs":[],"godotPoolSize":4};
+const GODOT_CONFIG = {"args":[],"canvasResizePolicy":2,"emscriptenPoolSize":8,"ensureCrossOriginIsolationHeaders":false,"executable":"index","experimentalVK":true,"fileSizes":{"index.pck":6356892,"index.wasm":39514754},"focusCanvas":true,"gdextensionLibs":[],"godotPoolSize":4};
 const GODOT_THREADS_ENABLED = false;
 const engine = new Engine(GODOT_CONFIG);
 
